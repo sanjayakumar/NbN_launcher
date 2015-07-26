@@ -28,7 +28,7 @@ float  launcher_Kd = .3;
 #define LAUNCHER_MIN_HEIGHT 0
 
 #define FLYWHEEL_SPEED_DELTA_STEP 50
-#define FLYWHEEL_MAX_SPEED 2300
+#define FLYWHEEL_MAX_SPEED 2900
 #define FLYWHEEL_MIN_SPEED 1000
 #define FLYWHEEL_INIT_SPEED 2200
 
@@ -127,7 +127,7 @@ pidTaskParameters pid[NUM_PID_CONTROLS];
 #define MOTOR_TPR_393R          261.333
 #define MOTOR_TPR_393S          392
 #define MOTOR_TPR_393T          627.2
-#define MOTOR_TPR_QUAD          360.0
+#define MOTOR_TPR_QUAD          261.333
 
 // Structure to gather all the flywheel ralated data
 typedef struct _fw_controller {
@@ -221,6 +221,9 @@ FwCalculateSpeed( fw_controller *fw )
 	int     delta_ms;
 	int     delta_enc;
 
+	// Added by SK to smooth velocity calculations
+	float alpha = 0.2;
+
 	// Get current encoder value
 	fw->e_current = FwMotorEncoderGet();
 
@@ -236,7 +239,7 @@ FwCalculateSpeed( fw_controller *fw )
 	fw->e_last = fw->e_current;
 
 	// Calculate velocity in rpm
-	fw->v_current = (1000.0 / delta_ms) * delta_enc * 60.0 / fw->ticks_per_rev*11.66666; //SK HACK
+	fw->v_current = fw->v_current * (1-alpha) + (1000.0 / delta_ms) * delta_enc * 60.0 / fw->ticks_per_rev * 11.66666 * alpha; //SK HACK
 
 
 
@@ -472,6 +475,7 @@ task main()
 		// Different speeds set by buttons
 		if( vexRT[ Btn6U ] == 1 ) {
 			wait1Msec(BUTTON_DEBOUNCE_TIME);
+
 			FwVelocitySet( &flywheel, FLYWHEEL_INIT_SPEED, start_drive );
 			//writeDebugStreamLine("started Flywheel");
 		}
@@ -528,7 +532,7 @@ task main()
 		// Display useful things on the LCD
 		sprintf( str, "%4d %4d  %5.2f", flywheel.target,  flywheel.current, nImmediateBatteryLevel/1000.0 );
 		displayLCDString(0, 0, str );
-		sprintf( str, "%4.2f %4.2f ", flywheel.drive, flywheel.drive_at_zero );
+		sprintf( str, "%3d %3.2f %3.2f ", flywheel.motor_drive, flywheel.drive, flywheel.drive_at_zero );
 		displayLCDString(1, 0, str );
 
 		// Don't hog the cpu :)
